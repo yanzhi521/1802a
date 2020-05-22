@@ -1,0 +1,92 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<beans  xmlns="http://www.springframework.org/schema/beans"  
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"  
+xmlns:aop="http://www.springframework.org/schema/aop"   
+xmlns:context="http://www.springframework.org/schema/context"  
+xmlns:jee="http://www.springframework.org/schema/jee"  
+xmlns:lang="http://www.springframework.org/schema/lang"  
+xmlns:util="http://www.springframework.org/schema/util"  
+xmlns:tx="http://www.springframework.org/schema/tx"  
+xmlns:mvc="http://www.springframework.org/schema/mvc"   
+
+xsi:schemaLocation="http://www.springframework.org/schema/beans  
+ http://www.springframework.org/schema/beans/spring-beans.xsd  http://www.springframework.org/schema/aop    
+ http://www.springframework.org/schema/aop/spring-aop.xsd   
+ http://www.springframework.org/schema/jee http://www.springframework.org/schema/jee/spring-jee.xsd   
+ http://www.springframework.org/schema/lang  http://www.springframework.org/schema/lang/spring-lang.xsd   
+ http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd   
+ http://www.springframework.org/schema/tx  http://www.springframework.org/schema/tx/spring-tx.xsd   
+ http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd   
+ http://www.springframework.org/schema/mvc  http://www.springframework.org/schema/mvc/spring-mvc.xsd">
+		<!-- 使用springMVC 需要理解里面都加载了什么 -->
+	
+		<!-- 1:扫描 spring需要加载的类 ：我们在类，接口中加入了很多的注解 那么什么时候去扫描这些注解  一定是在加载sping的时候 -->
+ 		<context:component-scan base-package="com.yz"></context:component-scan>
+		<!--  数据源的配置 -->
+		<context:property-placeholder location="classpath:db.properties"/>
+		<!-- 数据源有好多种  看个人习惯
+			德鲁伊 > 追光者 >dbcp>c3p0
+		 -->
+		<bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource">
+			<property name="driverClassName" value="${driver}"></property>
+			<property name="url" value="${url}"></property>
+			<property name="username" value="${uname}"></property>
+			<property name="password" value="${password}"></property>
+		</bean>
+		<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+			<!--加载数据源 -->
+			<property name="dataSource" ref="dataSource"></property>
+			<!-- mapper 配置文件扫描 -->
+				<!--直接在src/main/resource中用mapper文件夹 -->
+<!-- 			<property name="mapperLocations" value="classpath:mapper/*.xml"></property> -->
+					<!--直接在src/main/java 中的com.yz.dao包下用mapper.xml配置文件 -->
+			<property name="mapperLocations" value="classpath:com/yz/dao/*.xml"></property>
+			<!-- 打印日志 控制台打印-->
+			<property name="configLocation" value="classpath:mybatis-config.xml"></property>
+			<!-- 起别名  mapper.xml 中可以直接写类名与此有关 -->
+			<property name="typeAliasesPackage" value="com.yz.bean"></property>
+			<!-- 配置拦截器 使用PageHeler分页插件 -->
+			  <property name="plugins">
+			    <array>
+			      <bean class="com.github.pagehelper.PageInterceptor">
+			        <property name="properties">
+			          <!--使用下面的方式配置参数，一行配置一个 -->
+			          <value>
+			            helperDialect=mysql
+			            pageSizeZero=true
+			            reasonable=true
+			          </value>
+			        </property>
+			      </bean>
+			    </array>
+			  </property>
+		</bean>
+		<!-- dao层接口的扫描   需要我们做代理 所以必须扫描DAO层的接口 -->
+		<bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+			<property name="basePackage" value="com.yz.dao"></property>
+		</bean>
+		<!-- 事务管理器 -->
+		<bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+			<!-- 事务的管理一定要加载数据源 -->
+			<property name="dataSource" ref="dataSource"></property>
+		</bean>
+		<!-- AOP配置 -->
+		<aop:config>
+			<aop:pointcut expression="execution(* com.yz.service.*.*(..))" id="myPC"/>
+			<aop:advisor advice-ref="myAdvice" pointcut-ref="myPC"/>
+		</aop:config>
+	<!--事务的管理 分 声明式 标签中  及编码式 注解
+		method中以什么开头的 我才去做事务的提交，其他的都是只读
+	 -->
+	<tx:advice id="myAdvice" transaction-manager="transactionManager">
+		<tx:attributes>
+			<tx:method name="add*" propagation="REQUIRED" rollback-for="java.lang.Exception"/>
+			<tx:method name="insert*" propagation="REQUIRED" rollback-for="java.lang.Exception"/>
+			<tx:method name="save*" propagation="REQUIRED" rollback-for="java.lang.Exception"/>
+			<tx:method name="upd*" propagation="REQUIRED" rollback-for="java.lang.Exception"/>
+			<tx:method name="del*" propagation="REQUIRED" rollback-for="java.lang.Exception"/>
+			<tx:method name="rem*" propagation="REQUIRED" rollback-for="java.lang.Exception"/>
+			<tx:method name="*" read-only="true"/>
+		</tx:attributes>
+	</tx:advice>
+ </beans>
